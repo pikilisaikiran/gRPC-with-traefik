@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    # Basic ALB configuration for testing
+    alb.ingress.kubernetes.io/target-type: "instance"
+    alb.ingress.kubernetes.io/target-node-labels: <node-label>=true
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    # Health check configuration - test Traefik's ping endpoint
+    alb.ingress.kubernetes.io/healthcheck-path: "/ping"
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: "32505"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/tags: "team=test"
+    
+  labels:
+    app: traefik-basic-test
+    environment: dev
+  name: traefik-basic-test
+  namespace: traefik
+spec:
+  ingressClassName: alb
+  rules:
+    - host: traefik-test.example.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: test-traefik
+              port:
+                name: web
+          path: /
+          pathType: Prefix 

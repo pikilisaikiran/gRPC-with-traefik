@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpcserver
+  namespace: traefik
+spec:
+  selector:
+    matchLabels:
+      app: grpcserver
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: grpcserver
+    spec:
+      imagePullSecrets:
+      - name: creds
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: linux
+      containers:
+      - name: grpc-demo
+        image: pikilisaikiran/grpc:1.0.2
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 200m
+            memory: 100Mi
+        ports:
+        - name: grpc-api
+          containerPort: 9000
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpcserver
+  namespace: traefik
+  annotations:
+    # Configure Traefik for gRPC over h2c (HTTP/2 cleartext)
+    traefik.ingress.kubernetes.io/service.serversscheme: h2c
+spec:
+  type: ClusterIP
+  selector:
+    app: grpcserver
+  ports:
+    - name: grpc-api
+      port: 9000
+      targetPort: 9000
+      protocol: TCP
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grpcserver-route
+  namespace: traefik
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`grpc-service.example.com`)
+      kind: Rule
+      services:
+        - name: grpcserver
+          port: 9000
+          scheme: h2c  # Enables gRPC over cleartext HTTP/2
+  tls:
+    # Use TLS termination at Traefik level
+    secretName: ""  # Let Traefik handle TLS
+---
